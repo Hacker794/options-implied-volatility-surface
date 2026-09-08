@@ -30,4 +30,3 @@ def black_scholes_put(S, K, T, r, sigma):
     return (
         K * math.exp(-r * T) * norm.cdf(-d_2) - S * norm.cdf(-d_1)
     )
-

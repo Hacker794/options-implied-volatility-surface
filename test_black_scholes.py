@@ -11,8 +11,8 @@ sigma=0.2 # Volatility of the underlying stock
 call_price = black_scholes_call(S, K, T, r, sigma)
 put_price = black_scholes_put(S, K, T, r, sigma)
 
-print(f"Call Option Price: {call_price:.2f}")
-print(f"Put Option Price: {put_price:.2f}")
+print(f"Call Option Price: {call_price:.4f}")
+print(f"Put Option Price: {put_price:.4f}")
 
 # Test 1: prices should be positive
 assert call_price > 0
