@@ -27,12 +27,10 @@ def implied_volatility_call(S, K, T, r, market_price, tolerance=1e-6, max_iterat
     return sigma 
 
 def implied_volatility_put(S, K, T, r, market_price, tolerance=1e-6, max_iterations=100):
-    low = 0.01
+    low = 0.0001
     high = 5.0
 
     for _ in range(max_iterations):
-
-        # initial guess for volatility
 
         sigma = (low + high) / 2
 
