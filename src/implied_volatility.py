@@ -1,3 +1,5 @@
+# Note: Use python3 -m src.implied_volatility in terminal to run code
+
 from src.black_scholes import black_scholes_call, black_scholes_put
 
 def implied_volatility_call(S, K, T, r, market_price, tolerance=1e-6, max_iterations=100):
@@ -31,4 +33,3 @@ if __name__ == "__main__":
     iv = implied_volatility_call(S=100, K=100, T=1, r=0.05, market_price=10.4506)
     print(f"Implied Volatility: {iv:.4f}")
 
-    
