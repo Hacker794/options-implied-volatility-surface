@@ -57,6 +57,6 @@ if __name__ == "__main__":
     iv_call = implied_volatility_call(S=100, K=100, T=1, r=0.05, market_price=10.4506)
     print(f"Implied Volatility Call: {iv_call:.4f}")
 
-    iv_put = implied_volatility_put(S=100, K=100, T=1, r=0.05, market_price=5.57)
+    iv_put = implied_volatility_put(S=100, K=100, T=1, r=0.05, market_price=5.5735)
     print(f"Implied Volatility Put: {iv_put:.4f}")
 
