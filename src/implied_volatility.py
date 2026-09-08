@@ -1,0 +1,34 @@
+from src.black_scholes import black_scholes_call, black_scholes_put
+
+def implied_volatility_call(S, K, T, r, market_price, tolerance=1e-6, max_iterations=100):
+    low = 0.01
+    high = 5.0
+
+    for _ in range(max_iterations):
+
+        # initial guess for volatility
+
+        sigma = (low + high) / 2
+
+        model_price = black_scholes_call(S, K, T, r, sigma)
+
+        difference = model_price - market_price
+
+        if abs(difference) < tolerance:
+            return sigma
+
+        if model_price > market_price:
+            high = sigma
+        else:
+            low = sigma
+
+    return sigma 
+
+# test the function with an example
+
+if __name__ == "__main__":
+
+    iv = implied_volatility_call(S=100, K=100, T=1, r=0.05, market_price=10.4506)
+    print(f"Implied Volatility: {iv:.4f}")
+
+    
