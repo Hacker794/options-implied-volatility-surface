@@ -8,8 +8,6 @@ def implied_volatility_call(S, K, T, r, market_price, tolerance=1e-6, max_iterat
 
     for _ in range(max_iterations):
 
-        # initial guess for volatility
-
         sigma = (low + high) / 2
 
         model_price = black_scholes_call(S, K, T, r, sigma)
