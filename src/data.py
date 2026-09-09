@@ -24,6 +24,12 @@ def get_option_chain(ticker_symbol, expiry):
 
     return chain.calls, chain.puts
 
+# Pull the current SPY price so IV solver has S
+
+def get_current_price(ticker_symbol):
+    ticker = yf.Ticker(ticker_symbol)
+    return ticker.history(period="1d")["Close"].iloc[0]
+
 if __name__ == "__main__":
     ticker_symbol = "SPY"
     expiries = get_expiries(ticker_symbol)
@@ -39,14 +45,10 @@ if __name__ == "__main__":
     print("\nPuts:")
     print(puts.head())
 
-# Pull the current SPY price so IV solver has S
+    current_price = get_current_price(ticker_symbol)
+    print("Current Price:", current_price)
 
-def get_current_price(ticker_symbol):
-    ticker = yf.Ticker(ticker_symbol)
-    return ticker.history(period="1d")["Close"].iloc[0]
+    calls.to_csv(f"data/raw/{ticker_symbol}_calls_{first_expiry}.csv", index=False)
+    puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
 
-current_price = get_current_price(ticker_symbol)
-print("Current Price:", current_price)
 
-calls.to_csv(f"data/raw/{ticker_symbol}_calls_{first_expiry}.csv", index=False)
-puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
