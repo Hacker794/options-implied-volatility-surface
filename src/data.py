@@ -2,6 +2,7 @@ import yfinance as yf
 import pandas as pd
 
 pd.set_option('display.max_columns', None)
+pd.set_option("display.width", None)
 
 # Available option expiration dates for a given ticker symbol
 
@@ -15,7 +16,7 @@ if __name__ == "__main__":
     print(expiries)
 
 # Pull option chain data for a given ticker symbol and expiration date
-# Important columns in the option chain data include: strike, bid, ask, lastPrice, volume, openInterest, impliedVolatility, inTheMoney.
+# Important columns in the option chain data include: strike, bid, ask, lastPrice, volume, openInterest, impliedVolatility (We can compare our IV with reported IV - Validation Step), inTheMoney.
 
 def get_option_chain(ticker_symbol, expiry):
     ticker = yf.Ticker(ticker_symbol)
