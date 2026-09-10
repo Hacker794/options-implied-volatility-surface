@@ -30,6 +30,30 @@ def get_current_price(ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
     return ticker.history(period="1d")["Close"].iloc[0]
 
+def clean_option_data(df):
+    df = df.copy()
+
+    # Remove rows with missing bid or ask 
+    df = df.dropna(subset=["bid", "ask", "strike"])
+
+    # Remove zero or negative quotes 
+    df = df[(df["bid"] > 0) & (df["ask"] > 0)]
+
+    # Calculate mid price
+    df["mid_price"] = (df["bid"] + df["ask"]) / 2
+
+    # Calculate bid-ask spread
+    df["spread"] = df["ask"] - df["bid"]
+
+    # Calculate spread as a fraction of the mid price
+    df["relative_spread"] = df["spread"] / df["mid_price"]
+
+    # Remove extremely wide spreads
+    df = df[df["relative_spread"] <= 0.5]
+
+    return df
+
+
 if __name__ == "__main__":
     ticker_symbol = "SPY"
     expiries = get_expiries(ticker_symbol)
