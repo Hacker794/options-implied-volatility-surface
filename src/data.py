@@ -1,5 +1,6 @@
 import yfinance as yf
 import pandas as pd
+from pathlib import Path
 
 pd.set_option('display.max_columns', None)
 pd.set_option("display.width", None)
@@ -106,6 +107,21 @@ if __name__ == "__main__":
     allow_last_price = True
     clean_calls = clean_option_data(calls, allow_last_price=allow_last_price)
     clean_puts = clean_option_data(puts, allow_last_price=allow_last_price)
+
+    project_root = Path(__file__).resolve().parent.parent
+    clean_data_folder = project_root / "data" / "clean"
+
+    clean_data_folder.mkdir(parents=True, exist_ok=True)
+
+    clean_calls.to_csv(
+        clean_data_folder / f"{ticker_symbol}_calls_{first_expiry}.csv",
+        index=False
+    )
+
+    clean_puts.to_csv(
+        clean_data_folder / f"{ticker_symbol}_puts_{first_expiry}.csv",
+        index=False
+    )
 
     print("\nCleaned Calls:")
     print(clean_calls.head())
