@@ -104,7 +104,7 @@ if __name__ == "__main__":
     puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
 
     # Set False to keep only usable bid/ask midpoints.
-    allow_last_price = True
+    allow_last_price = False
     clean_calls = clean_option_data(calls, allow_last_price=allow_last_price)
     clean_puts = clean_option_data(puts, allow_last_price=allow_last_price)
 
