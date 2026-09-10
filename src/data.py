@@ -30,51 +30,55 @@ def get_current_price(ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
     return ticker.history(period="1d")["Close"].iloc[0]
 
-def clean_option_data(df):
-
-    """""
+def clean_option_data(df, allow_last_price=False):
+    """Prefer usable midpoints; optionally use last trades for missing quotes."""
     df = df.copy()
 
-    # Remove rows with missing bid or ask 
-    df = df.dropna(subset=["bid", "ask", "strike"])
+    # Keep finite, positive strikes.
+    df = df[
+        df["strike"].notna()
+        & (df["strike"] > 0)
+        & (df["strike"] < float("inf"))
+    ].copy()
 
-    # Remove zero or negative quotes 
-    df = df[(df["bid"] > 0) & (df["ask"] > 0)]
+    valid_quotes = (
+        (df["bid"] > 0)
+        & (df["ask"] >= df["bid"])
+        & (df["ask"] < float("inf"))
+    )
 
-    # Calculate mid price
-    df["mid_price"] = (df["bid"] + df["ask"]) / 2
+    df["mid_price"] = (
+        (df["bid"] + df["ask"]) / 2
+    ).where(valid_quotes)
+    df["relative_spread"] = (
+        (df["ask"] - df["bid"]) / df["mid_price"]
+    )
 
-    # Calculate bid-ask spread
-    df["spread"] = df["ask"] - df["bid"]
+    use_mid = valid_quotes & (df["relative_spread"] <= 0.50)
+    df["market_price"] = df["mid_price"].where(use_mid)
+    df["price_source"] = pd.Series(index=df.index, dtype="object")
+    df.loc[use_mid, "price_source"] = "mid"
 
-    # Calculate spread as a fraction of the mid price
-    df["relative_spread"] = df["spread"] / df["mid_price"]
+    if allow_last_price:
+        valid_last = (
+            (df["lastPrice"] > 0)
+            & (df["lastPrice"] < float("inf"))
+        )
+        missing_quotes = (
+            df["bid"].isna() | df["ask"].isna()
+            | (df["bid"] == 0) | (df["ask"] == 0)
+        )
+        # Missing quotes may use a last trade; malformed quotes may not.
+        malformed_quotes = (
+            (df["bid"] < 0) | (df["ask"] < 0)
+            | (df["bid"] == float("inf"))
+            | (df["ask"] == float("inf"))
+        )
+        use_last = missing_quotes & ~malformed_quotes & valid_last
+        df.loc[use_last, "market_price"] = df.loc[use_last, "lastPrice"]
+        df.loc[use_last, "price_source"] = "lastPrice"
 
-    # Remove extremely wide spreads (might need to tighten 50% threshold)
-    df = df[df["relative_spread"] <= 0.5]
-
-    return df
-
-    """
-
-    df = df.copy()
-
-    print("Starting rows:", len(df))
-
-    df = df.dropna(subset=["bid", "ask", "strike"])
-    print("After removing missing values:", len(df))
-
-    df = df[(df["bid"] > 0) & (df["ask"] > 0)]
-    print("After removing zero quotes:", len(df))
-
-    df["mid_price"] = (df["bid"] + df["ask"]) / 2
-    df["spread"] = df["ask"] - df["bid"]
-    df["relative_spread"] = df["spread"] / df["mid_price"]
-
-    df = df[df["relative_spread"] <= 0.50]
-    print("After spread filter:", len(df))
-
-    return df
+    return df.dropna(subset=["market_price"])
 
 
 if __name__ == "__main__":
@@ -98,11 +102,21 @@ if __name__ == "__main__":
     calls.to_csv(f"data/raw/{ticker_symbol}_calls_{first_expiry}.csv", index=False)
     puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
 
-    clean_calls = clean_option_data(calls)
-    clean_puts = clean_option_data(puts)
+    # Set False to keep only usable bid/ask midpoints.
+    allow_last_price = True
+    clean_calls = clean_option_data(calls, allow_last_price=allow_last_price)
+    clean_puts = clean_option_data(puts, allow_last_price=allow_last_price)
 
     print("\nCleaned Calls:")
     print(clean_calls.head())
 
     print("\nCleaned Puts:")
     print(clean_puts.head())
+
+    print("Raw calls:", len(calls))
+    print("Clean calls:", len(clean_calls))
+    print(clean_calls["price_source"].value_counts())
+
+    print("Raw puts:", len(puts))
+    print("Clean puts:", len(clean_puts))
+    print(clean_puts["price_source"].value_counts())
