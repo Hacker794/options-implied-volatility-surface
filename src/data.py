@@ -31,6 +31,8 @@ def get_current_price(ticker_symbol):
     return ticker.history(period="1d")["Close"].iloc[0]
 
 def clean_option_data(df):
+
+    """""
     df = df.copy()
 
     # Remove rows with missing bid or ask 
@@ -48,8 +50,29 @@ def clean_option_data(df):
     # Calculate spread as a fraction of the mid price
     df["relative_spread"] = df["spread"] / df["mid_price"]
 
-    # Remove extremely wide spreads
+    # Remove extremely wide spreads (might need to tighten 50% threshold)
     df = df[df["relative_spread"] <= 0.5]
+
+    return df
+
+    """
+
+    df = df.copy()
+
+    print("Starting rows:", len(df))
+
+    df = df.dropna(subset=["bid", "ask", "strike"])
+    print("After removing missing values:", len(df))
+
+    df = df[(df["bid"] > 0) & (df["ask"] > 0)]
+    print("After removing zero quotes:", len(df))
+
+    df["mid_price"] = (df["bid"] + df["ask"]) / 2
+    df["spread"] = df["ask"] - df["bid"]
+    df["relative_spread"] = df["spread"] / df["mid_price"]
+
+    df = df[df["relative_spread"] <= 0.50]
+    print("After spread filter:", len(df))
 
     return df
 
@@ -75,4 +98,11 @@ if __name__ == "__main__":
     calls.to_csv(f"data/raw/{ticker_symbol}_calls_{first_expiry}.csv", index=False)
     puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
 
+    clean_calls = clean_option_data(calls)
+    clean_puts = clean_option_data(puts)
 
+    print("\nCleaned Calls:")
+    print(clean_calls.head())
+
+    print("\nCleaned Puts:")
+    print(clean_puts.head())
