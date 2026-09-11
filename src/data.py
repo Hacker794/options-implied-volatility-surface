@@ -1,7 +1,10 @@
+# Note: python3 -m src.data in terminal to run code
+
 import yfinance as yf
 import pandas as pd
 from pathlib import Path
 from datetime import date, datetime 
+from src.implied_volatility import implied_volatility_call, implied_volatility_put
 
 pd.set_option('display.max_columns', None)
 pd.set_option("display.width", None)
@@ -141,8 +144,14 @@ if __name__ == "__main__":
         index=False
     )
 
+    nearest_call_index = clean_calls["strike"].sub(current_price).abs().idxmin()
+    nearest_call = clean_calls.loc[nearest_call_index] 
+
     print("\nCleaned Calls:")
     print(clean_calls.head())
+
+    print("\nNearest Call to Current Price:")
+    print(nearest_call[["strike", "bid", "ask", "market_price", "price_source"]])
 
     print("\nCleaned Puts:")
     print(clean_puts.head())
