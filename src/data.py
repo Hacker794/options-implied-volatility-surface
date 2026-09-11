@@ -1,6 +1,7 @@
 import yfinance as yf
 import pandas as pd
 from pathlib import Path
+from datetime import date, datetime 
 
 pd.set_option('display.max_columns', None)
 pd.set_option("display.width", None)
@@ -81,15 +82,32 @@ def clean_option_data(df, allow_last_price=False):
 
     return df.dropna(subset=["market_price"])
 
+# Pull time to expiration in years so implied volatility solver has T
+
+def calculate_time_to_expiry(expiry):
+    expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
+
+    days_to_expiry = (expiry_date - date.today()).days
+
+    if days_to_expiry <= 0:
+        raise ValueError("Expiration date must be in the future.")
+
+    return days_to_expiry / 365.0
+
 
 if __name__ == "__main__":
     ticker_symbol = "SPY"
     expiries = get_expiries(ticker_symbol)
-    first_expiry = expiries[0]
+
+    # We want first expiry to be at least 7 days away. If it was 0 then Black Scholes could not be used to price the option as it contains sqrt(T).
+
+    first_expiry = next(expiry for expiry in expiries if ( datetime.strptime(expiry, "%Y-%m-%d").date() - date.today()).days >= 7)
+    time_to_expiry = calculate_time_to_expiry(first_expiry)
 
     calls, puts = get_option_chain(ticker_symbol, first_expiry)
 
     print("Expiration Date:", first_expiry)
+    print("Time to Expiry in years:", time_to_expiry)
 
     print("\nCalls:")
     print(calls.head())
