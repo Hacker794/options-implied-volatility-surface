@@ -147,6 +147,9 @@ if __name__ == "__main__":
     nearest_call_index = clean_calls["strike"].sub(current_price).abs().idxmin()
     nearest_call = clean_calls.loc[nearest_call_index] 
 
+    nearest_put_index = clean_puts["strike"].sub(current_price).abs().idxmin()
+    nearest_put = clean_puts.loc[nearest_put_index]
+
     print("\nCleaned Calls:")
     print(clean_calls.head())
 
@@ -156,7 +159,10 @@ if __name__ == "__main__":
     print("\nCleaned Puts:")
     print(clean_puts.head())
 
-    print("Raw calls:", len(calls))
+    print("\nNearest Put to Current Price:")
+    print(nearest_put[["strike", "bid", "ask", "market_price", "price_source"]])
+
+    print("\n\nRaw calls:", len(calls))
     print("Clean calls:", len(clean_calls))
     print(clean_calls["price_source"].value_counts())
 
