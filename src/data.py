@@ -4,7 +4,7 @@ import yfinance as yf
 import pandas as pd
 from pathlib import Path
 from datetime import date, datetime 
-from src.implied_volatility import implied_volatility_call, implied_volatility_put
+from src.implied_volatility import (implied_volatility_call, implied_volatility_put)
 
 pd.set_option('display.max_columns', None)
 pd.set_option("display.width", None)
@@ -150,6 +150,25 @@ if __name__ == "__main__":
     nearest_put_index = clean_puts["strike"].sub(current_price).abs().idxmin()
     nearest_put = clean_puts.loc[nearest_put_index]
 
+    # Temporary annual risk-free interest rate assumption: 4%
+    risk_free_rate = 0.04 
+
+    calculated_call_iv = implied_volatility_call(
+        S=current_price,
+        K=float(nearest_call["strike"]),
+        T=time_to_expiry,
+        r=risk_free_rate,
+        market_price=float(nearest_call["market_price"])
+    )
+
+    calculated_put_iv = implied_volatility_put(
+        S=current_price,
+        K=float(nearest_put["strike"]),
+        T=time_to_expiry,
+        r=risk_free_rate,
+        market_price=float(nearest_put["market_price"]) 
+    )
+
     print("\nCleaned Calls:")
     print(clean_calls.head())
 
@@ -166,6 +185,12 @@ if __name__ == "__main__":
     print("Clean calls:", len(clean_calls))
     print(clean_calls["price_source"].value_counts())
 
-    print("Raw puts:", len(puts))
+    print("\nRaw puts:", len(puts))
     print("Clean puts:", len(clean_puts))
     print(clean_puts["price_source"].value_counts())
+
+    print(f"\n\nCalculated call IV: {calculated_call_iv:.2%}")
+    print(f"Yahoo call IV: {nearest_call['impliedVolatility']:.2%}")
+
+    print(f"\nCalculated put IV: {calculated_put_iv:.2%}")
+    print(f"Yahoo put IV: {nearest_put['impliedVolatility']:.2%}")
