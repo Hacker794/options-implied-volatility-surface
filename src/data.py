@@ -97,6 +97,30 @@ def calculate_time_to_expiry(expiry):
 
     return days_to_expiry / 365.0
 
+def calculate_row_iv(row, option_type, S, T, r):
+    try:
+        if option_type == "call":
+            return implied_volatility_call(
+                S=S,
+                K=float(row["strike"]),
+                T=T,
+                r=r,
+                market_price=float(row["market_price"])
+            )
+        elif option_type == "put":
+            return implied_volatility_put(
+                S=S,
+                K=float(row["strike"]),
+                T=T,
+                r=r,
+                market_price=float(row["market_price"])
+            )
+        else:
+            raise ValueError("Invalid option type. Must be 'call' or 'put'.")
+
+    except ValueError:
+        return float("nan")  # Return NaN if IV calculation fails
+
 
 if __name__ == "__main__":
     ticker_symbol = "SPY"
@@ -134,6 +158,23 @@ if __name__ == "__main__":
 
     clean_data_folder.mkdir(parents=True, exist_ok=True)
 
+    nearest_call_index = clean_calls["strike"].sub(current_price).abs().idxmin()
+    nearest_call = clean_calls.loc[nearest_call_index] 
+
+    nearest_put_index = clean_puts["strike"].sub(current_price).abs().idxmin()
+    nearest_put = clean_puts.loc[nearest_put_index]
+
+    # Temporary annual risk-free interest rate assumption: 4%
+    risk_free_rate = 0.04 
+
+    clean_calls["calculated_iv"] = clean_calls.apply(
+        lambda row: calculate_row_iv(row, "call", current_price, time_to_expiry, risk_free_rate), axis=1
+    )
+
+    clean_puts["calculated_iv"] = clean_puts.apply(
+        lambda row: calculate_row_iv(row, "put", current_price, time_to_expiry, risk_free_rate), axis=1
+    )
+
     clean_calls.to_csv(
         clean_data_folder / f"{ticker_symbol}_calls_{first_expiry}.csv",
         index=False
@@ -143,15 +184,6 @@ if __name__ == "__main__":
         clean_data_folder / f"{ticker_symbol}_puts_{first_expiry}.csv",
         index=False
     )
-
-    nearest_call_index = clean_calls["strike"].sub(current_price).abs().idxmin()
-    nearest_call = clean_calls.loc[nearest_call_index] 
-
-    nearest_put_index = clean_puts["strike"].sub(current_price).abs().idxmin()
-    nearest_put = clean_puts.loc[nearest_put_index]
-
-    # Temporary annual risk-free interest rate assumption: 4%
-    risk_free_rate = 0.04 
 
     calculated_call_iv = implied_volatility_call(
         S=current_price,
@@ -194,3 +226,27 @@ if __name__ == "__main__":
 
     print(f"\nCalculated put IV: {calculated_put_iv:.2%}")
     print(f"Yahoo put IV: {nearest_put['impliedVolatility']:.2%}")
+
+    print("\nCalculated call IVs:")
+    print(
+        clean_calls[
+            ["strike", "market_price", "calculated_iv"]
+        ].head(10)
+    )
+
+    print("\nCalculated put IVs:")
+    print(
+        clean_puts[
+            ["strike", "market_price", "calculated_iv"]
+        ].head(10)
+    )
+
+    print(
+        "Successful call IVs:",
+    clean_calls["calculated_iv"].notna().sum()
+    )
+
+    print(
+        "Successful put IVs:",
+        clean_puts["calculated_iv"].notna().sum()
+    )
