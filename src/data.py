@@ -175,6 +175,24 @@ if __name__ == "__main__":
         lambda row: calculate_row_iv(row, "put", current_price, time_to_expiry, risk_free_rate), axis=1
     )
 
+    call_iv_failures = clean_calls["calculated_iv"].isna().sum()
+    put_iv_failures = clean_puts["calculated_iv"].isna().sum()
+
+    print("Call IV failures:", call_iv_failures)
+    print("Put IV failures:", put_iv_failures)
+
+    # Remove failed calculations and extreme IV results.
+    clean_calls = clean_calls.dropna(subset=["calculated_iv"]).copy()
+    clean_puts = clean_puts.dropna(subset=["calculated_iv"]).copy()
+
+    clean_calls = clean_calls[
+        clean_calls["calculated_iv"].between(0.01, 3.0)
+    ].copy()
+
+    clean_puts = clean_puts[
+        clean_puts["calculated_iv"].between(0.01, 3.0)
+    ].copy()
+
     clean_calls.to_csv(
         clean_data_folder / f"{ticker_symbol}_calls_{first_expiry}.csv",
         index=False
