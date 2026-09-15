@@ -178,8 +178,25 @@ if __name__ == "__main__":
     if not selected_expiries:
         raise ValueError("No expirations available 7–90 days away.")
 
-    # Start with three expirations to test the loop.
-    selected_expiries = selected_expiries[:3]
+    target_days = [7, 14, 30, 60, 90]
+    available_expiries = selected_expiries.copy()
+    selected_expiries = []
+
+    for target in target_days:
+        closest_expiry = min(
+            available_expiries,
+            key=lambda expiry: abs(
+                (
+                    datetime.strptime(expiry, "%Y-%m-%d").date()
+                    - today
+               ).days - target
+            )
+        )
+
+        if closest_expiry not in selected_expiries:
+            selected_expiries.append(closest_expiry)
+
+    selected_expiries.sort()
 
     current_price = get_current_price(ticker_symbol)
 
