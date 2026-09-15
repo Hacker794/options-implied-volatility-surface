@@ -122,13 +122,69 @@ def calculate_row_iv(row, option_type, S, T, r):
         return float("nan")  # Return NaN if IV calculation fails
 
 
+def process_expiry(ticker_symbol, expiry, S, r):
+    T = calculate_time_to_expiry(expiry)
+    calls, puts = get_option_chain(ticker_symbol, expiry)
+
+    # Preserve the downloaded data before cleaning.
+
+    raw_folder = Path(__file__).resolve().parent.parent / "data" / "raw"
+    raw_folder.mkdir(parents=True, exist_ok=True)
+
+    calls.to_csv(raw_folder / f"{ticker_symbol}_calls_{expiry}.csv", index=False)
+    puts.to_csv(raw_folder / f"{ticker_symbol}_puts_{expiry}.csv", index=False)
+
+    results = []
+
+    for option_type, raw_data in [("call", calls), ("put", puts)]:
+        cleaned = clean_option_data(raw_data, allow_last_price=False)
+
+        if cleaned.empty:
+            print(f"{expiry} {option_type}: no usable quotes")
+            continue
+
+        cleaned["calculated_iv"] = cleaned.apply(
+            lambda row: calculate_row_iv(row, option_type, S, T, r), axis=1)
+
+        failures = cleaned["calculated_iv"].isna().sum()
+        print(f"{expiry} {option_type}: {failures} IV failures")
+
+        cleaned = cleaned[cleaned["calculated_iv"].between(0.01, 3.0)].copy()
+
+        cleaned["expiry"] = expiry
+        cleaned["option_type"] = option_type
+        cleaned["time_to_expiry"] = T
+        cleaned["underlying_price"] = S
+
+        results.append(cleaned)
+
+    if not results:
+        return pd.DataFrame()
+
+    return pd.concat(results, ignore_index=True)
+    
+
 if __name__ == "__main__":
     ticker_symbol = "SPY"
     expiries = get_expiries(ticker_symbol)
 
     # We want first expiry to be at least 7 days away. If it was 0 then Black Scholes could not be used to price the option as it contains sqrt(T).
 
-    first_expiry = next(expiry for expiry in expiries if ( datetime.strptime(expiry, "%Y-%m-%d").date() - date.today()).days >= 7)
+    today = date.today()
+
+    selected_expiries = [expiry for expiry in expiries if 7 <= (datetime.strptime(expiry, "%Y-%m-%d").date() - today).days <= 90]
+
+    if not selected_expiries:
+        raise ValueError("No suitable expiration dates found within the 7 to 90 days range.")
+
+    print("\nSelected expirations:")
+    print(selected_expiries)
+
+    print("Number of expirations:", len(selected_expiries))
+
+    # Continue processing one expiry until we add the lopp
+    first_expiry = selected_expiries[0]
+
     time_to_expiry = calculate_time_to_expiry(first_expiry)
 
     calls, puts = get_option_chain(ticker_symbol, first_expiry)
