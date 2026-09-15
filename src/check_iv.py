@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-
+import math
 
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parent.parent
@@ -50,5 +50,35 @@ if __name__ == "__main__":
     print(
         near_money.groupby("expiry")["iv_gap_pp"]
         .agg(["count", "median", "min", "max"])
+        .round(3)
+    )
+
+    # Match the assumption used when calculating these saved IVs.
+    risk_free_rate = 0.04
+
+    near_money["model_implied_spot"] = (
+        near_money["market_price_call"]
+        - near_money["market_price_put"]
+        + near_money["strike"]
+        * near_money["time_to_expiry_call"].apply(
+            lambda T: math.exp(-risk_free_rate * T)
+        )
+    )
+
+    near_money["spot_gap"] = (
+        near_money["model_implied_spot"]
+        - near_money["underlying_price_call"]
+    )
+
+    print("\nUnderlying-price consistency check:")
+    print(
+        near_money.groupby("expiry")[
+            [   
+                "underlying_price_call",
+                "model_implied_spot",
+                "spot_gap",
+            ]
+        ]
+        .median()
         .round(3)
     )
