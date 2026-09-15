@@ -150,6 +150,7 @@ def process_expiry(ticker_symbol, expiry, S, r):
         cleaned["option_type"] = option_type
         cleaned["time_to_expiry"] = T
         cleaned["underlying_price"] = S
+        cleaned["moneyness"] = cleaned["strike"] / S
 
         results.append(cleaned)
 
@@ -207,6 +208,11 @@ if __name__ == "__main__":
         raise ValueError("No usable IV results across selected expirations.")
 
     combined_data = pd.concat(all_results, ignore_index=True)
+
+    combined_data = combined_data.sort_values(["expiry", "option_type", "moneyness"]).reset_index(drop=True)
+
+    print("\nCombined IV data:")
+    print(combined_data[["expiry", "option_type", "strike", "underlying_price", "moneyness", "time_to_expiry", "calculated_iv"]].head(10))
 
     print("\nRows by expiry and option type:")
     print(combined_data.groupby(["expiry", "option_type"]).size())
