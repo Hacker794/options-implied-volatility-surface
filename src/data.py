@@ -15,11 +15,6 @@ def get_expiries(ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
     return ticker.options
 
-if __name__ == "__main__":
-    expiries = get_expiries("SPY")
-
-    print(expiries)
-
 # Pull option chain data for a given ticker symbol and expiration date
 # Important columns in the option chain data include: strike, bid, ask, lastPrice, volume, openInterest, impliedVolatility (We can compare our IV with reported IV - Validation Step), inTheMoney
 
@@ -166,161 +161,62 @@ def process_expiry(ticker_symbol, expiry, S, r):
 
 if __name__ == "__main__":
     ticker_symbol = "SPY"
-    expiries = get_expiries(ticker_symbol)
-
-    # We want first expiry to be at least 7 days away. If it was 0 then Black Scholes could not be used to price the option as it contains sqrt(T).
-
+    risk_free_rate = 0.04  # Temporary assumption
     today = date.today()
 
-    selected_expiries = [expiry for expiry in expiries if 7 <= (datetime.strptime(expiry, "%Y-%m-%d").date() - today).days <= 90]
+    expiries = get_expiries(ticker_symbol)
+
+    selected_expiries = [
+        expiry
+        for expiry in expiries
+        if 7 <= (
+            datetime.strptime(expiry, "%Y-%m-%d").date() - today
+        ).days <= 90
+    ]
 
     if not selected_expiries:
-        raise ValueError("No suitable expiration dates found within the 7 to 90 days range.")
+        raise ValueError("No expirations available 7–90 days away.")
 
-    print("\nSelected expirations:")
-    print(selected_expiries)
-
-    print("Number of expirations:", len(selected_expiries))
-
-    # Continue processing one expiry until we add the lopp
-    first_expiry = selected_expiries[0]
-
-    time_to_expiry = calculate_time_to_expiry(first_expiry)
-
-    calls, puts = get_option_chain(ticker_symbol, first_expiry)
-
-    print("Expiration Date:", first_expiry)
-    print("Time to Expiry in years:", time_to_expiry)
-
-    print("\nCalls:")
-    print(calls.head())
-
-    print("\nPuts:")
-    print(puts.head())
+    # Start with three expirations to test the loop.
+    selected_expiries = selected_expiries[:3]
 
     current_price = get_current_price(ticker_symbol)
-    print("Current Price:", current_price)
 
-    calls.to_csv(f"data/raw/{ticker_symbol}_calls_{first_expiry}.csv", index=False)
-    puts.to_csv(f"data/raw/{ticker_symbol}_puts_{first_expiry}.csv", index=False)
+    print("Underlying price:", current_price)
+    print("Selected expirations:", selected_expiries)
 
-    # Set False to keep only usable bid/ask midpoints.
-    allow_last_price = False
-    clean_calls = clean_option_data(calls, allow_last_price=allow_last_price)
-    clean_puts = clean_option_data(puts, allow_last_price=allow_last_price)
+    all_results = []
 
-    project_root = Path(__file__).resolve().parent.parent
-    clean_data_folder = project_root / "data" / "clean"
+    for expiry in selected_expiries:
+        print(f"\nProcessing {expiry}")
 
-    clean_data_folder.mkdir(parents=True, exist_ok=True)
+        expiry_data = process_expiry(
+            ticker_symbol,
+            expiry,
+            current_price,
+            risk_free_rate
+        )
 
-    nearest_call_index = clean_calls["strike"].sub(current_price).abs().idxmin()
-    nearest_call = clean_calls.loc[nearest_call_index] 
+        if expiry_data.empty:
+            print("No usable IV results for this expiry.")
+            continue
 
-    nearest_put_index = clean_puts["strike"].sub(current_price).abs().idxmin()
-    nearest_put = clean_puts.loc[nearest_put_index]
+        all_results.append(expiry_data)
 
-    # Temporary annual risk-free interest rate assumption: 4%
-    risk_free_rate = 0.04 
+    if not all_results:
+        raise ValueError("No usable IV results across selected expirations.")
 
-    clean_calls["calculated_iv"] = clean_calls.apply(
-        lambda row: calculate_row_iv(row, "call", current_price, time_to_expiry, risk_free_rate), axis=1
+    combined_data = pd.concat(all_results, ignore_index=True)
+
+    print("\nRows by expiry and option type:")
+    print(combined_data.groupby(["expiry", "option_type"]).size())
+
+    clean_folder = (
+        Path(__file__).resolve().parent.parent / "data" / "clean"
     )
+    clean_folder.mkdir(parents=True, exist_ok=True)
 
-    clean_puts["calculated_iv"] = clean_puts.apply(
-        lambda row: calculate_row_iv(row, "put", current_price, time_to_expiry, risk_free_rate), axis=1
-    )
+    output_path = clean_folder / f"{ticker_symbol}_combined_iv.csv"
+    combined_data.to_csv(output_path, index=False)
 
-    call_iv_failures = clean_calls["calculated_iv"].isna().sum()
-    put_iv_failures = clean_puts["calculated_iv"].isna().sum()
-
-    print("Call IV failures:", call_iv_failures)
-    print("Put IV failures:", put_iv_failures)
-
-    # Remove failed calculations and extreme IV results.
-    clean_calls = clean_calls.dropna(subset=["calculated_iv"]).copy()
-    clean_puts = clean_puts.dropna(subset=["calculated_iv"]).copy()
-
-    clean_calls = clean_calls[
-        clean_calls["calculated_iv"].between(0.01, 3.0)
-    ].copy()
-
-    clean_puts = clean_puts[
-        clean_puts["calculated_iv"].between(0.01, 3.0)
-    ].copy()
-
-    clean_calls.to_csv(
-        clean_data_folder / f"{ticker_symbol}_calls_{first_expiry}.csv",
-        index=False
-    )
-
-    clean_puts.to_csv(
-        clean_data_folder / f"{ticker_symbol}_puts_{first_expiry}.csv",
-        index=False
-    )
-
-    calculated_call_iv = implied_volatility_call(
-        S=current_price,
-        K=float(nearest_call["strike"]),
-        T=time_to_expiry,
-        r=risk_free_rate,
-        market_price=float(nearest_call["market_price"])
-    )
-
-    calculated_put_iv = implied_volatility_put(
-        S=current_price,
-        K=float(nearest_put["strike"]),
-        T=time_to_expiry,
-        r=risk_free_rate,
-        market_price=float(nearest_put["market_price"]) 
-    )
-
-    print("\nCleaned Calls:")
-    print(clean_calls.head())
-
-    print("\nNearest Call to Current Price:")
-    print(nearest_call[["strike", "bid", "ask", "market_price", "price_source"]])
-
-    print("\nCleaned Puts:")
-    print(clean_puts.head())
-
-    print("\nNearest Put to Current Price:")
-    print(nearest_put[["strike", "bid", "ask", "market_price", "price_source"]])
-
-    print("\n\nRaw calls:", len(calls))
-    print("Clean calls:", len(clean_calls))
-    print(clean_calls["price_source"].value_counts())
-
-    print("\nRaw puts:", len(puts))
-    print("Clean puts:", len(clean_puts))
-    print(clean_puts["price_source"].value_counts())
-
-    print(f"\n\nCalculated call IV: {calculated_call_iv:.2%}")
-    print(f"Yahoo call IV: {nearest_call['impliedVolatility']:.2%}")
-
-    print(f"\nCalculated put IV: {calculated_put_iv:.2%}")
-    print(f"Yahoo put IV: {nearest_put['impliedVolatility']:.2%}")
-
-    print("\nCalculated call IVs:")
-    print(
-        clean_calls[
-            ["strike", "market_price", "calculated_iv"]
-        ].head(10)
-    )
-
-    print("\nCalculated put IVs:")
-    print(
-        clean_puts[
-            ["strike", "market_price", "calculated_iv"]
-        ].head(10)
-    )
-
-    print(
-        "Successful call IVs:",
-    clean_calls["calculated_iv"].notna().sum()
-    )
-
-    print(
-        "Successful put IVs:",
-        clean_puts["calculated_iv"].notna().sum()
-    )
+    print("\nSaved:", output_path)
