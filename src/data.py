@@ -3,7 +3,7 @@
 import yfinance as yf
 import pandas as pd
 from pathlib import Path
-from datetime import date, datetime 
+from datetime import date, datetime, timezone
 from src.implied_volatility import (implied_volatility_call, implied_volatility_put)
 
 pd.set_option('display.max_columns', None)
@@ -120,6 +120,7 @@ def calculate_row_iv(row, option_type, S, T, r):
 def process_expiry(ticker_symbol, expiry, S, r):
     T = calculate_time_to_expiry(expiry)
     calls, puts = get_option_chain(ticker_symbol, expiry)
+    chain_fetched_at = datetime.now(timezone.utc).isoformat()
 
     # Preserve the downloaded data before cleaning.
 
@@ -151,6 +152,9 @@ def process_expiry(ticker_symbol, expiry, S, r):
         cleaned["time_to_expiry"] = T
         cleaned["underlying_price"] = S
         cleaned["moneyness"] = cleaned["strike"] / S
+        cleaned["risk_free_rate"] = r
+        cleaned["pricing_model"] = "Black-Scholes, no dividends"
+        cleaned["chain_fetched_at_utc"] = chain_fetched_at
 
         results.append(cleaned)
 
@@ -209,6 +213,8 @@ if __name__ == "__main__":
 
     current_price = get_current_price(ticker_symbol)
 
+    underlying_fetched_at = datetime.now(timezone.utc).isoformat()
+
     print("Underlying price:", current_price)
     print("Selected expirations:", selected_expiries)
 
@@ -234,6 +240,7 @@ if __name__ == "__main__":
         raise ValueError("No usable IV results across selected expirations.")
 
     combined_data = pd.concat(all_results, ignore_index=True)
+    combined_data["underlying_fetched_at_utc"] = underlying_fetched_at
 
     combined_data = combined_data.sort_values(["expiry", "option_type", "moneyness"]).reset_index(drop=True)
 
