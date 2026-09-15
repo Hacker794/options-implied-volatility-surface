@@ -198,6 +198,15 @@ if __name__ == "__main__":
 
     selected_expiries.sort()
 
+    print("\nSelected expiration dates:")
+
+    for expiry in selected_expiries:
+        days_remaining = (
+            datetime.strptime(expiry, "%Y-%m-%d").date() - today
+        ).days
+
+        print(f"{expiry}: {days_remaining} days")
+
     current_price = get_current_price(ticker_symbol)
 
     print("Underlying price:", current_price)
