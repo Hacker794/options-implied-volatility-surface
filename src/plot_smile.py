@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     expiry = sorted(data["expiry"].unique())[0]
 
-    smile = data[data["expiry"] == expiry] & data["moneyness"].between(0.90, 1.10).copy()
+    smile = data[(data["expiry"] == expiry) & data["moneyness"].between(0.90, 1.10)].copy()
 
     if smile.empty:
         print(f"No data available for expiry {expiry}.")
